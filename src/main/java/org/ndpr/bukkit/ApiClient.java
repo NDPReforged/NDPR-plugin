@@ -36,12 +36,18 @@ public class ApiClient {
         this.plugin = plugin;
         this.http = HttpClient.newBuilder()
                 .connectTimeout(Duration.ofSeconds(10))
-                .followRedirects(HttpClient.Redirect.NORMAL)
+                // ALWAYS: POST 也跟随重定向 (NORMAL 不跟随 POST 的 3xx, 会导致 UUID 获取失败)
+                .followRedirects(HttpClient.Redirect.ALWAYS)
                 .build();
     }
 
     private String baseUrl() {
-        return plugin.ndprConfig().apiUrl();
+        // 规范化: 去除尾部斜杠, 避免拼接出 //path 双斜杠
+        String url = plugin.ndprConfig().apiUrl();
+        while (url.endsWith("/")) {
+            url = url.substring(0, url.length() - 1);
+        }
+        return url;
     }
 
     private Map<String, String> authHeaders() {

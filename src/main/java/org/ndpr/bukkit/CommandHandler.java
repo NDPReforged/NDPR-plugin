@@ -249,6 +249,14 @@ public class CommandHandler implements CommandExecutor {
                     sender.sendMessage("§c" + tr.tr("ndpr.reply.reload_failed", "error", plugin.ndprConfig().getError()));
                     return;
                 }
+                // uuid 为空时顺带重新获取(首次获取失败后的兜底)
+                if (plugin.ndprConfig().uuid().isEmpty()) {
+                    try {
+                        plugin.obtainUuid();
+                    } catch (Exception e) {
+                        sender.sendMessage("§cUUID 获取失败: " + e);
+                    }
+                }
                 plugin.banDb().download(sender);
                 sender.sendMessage("§a" + tr.tr("ndpr.reply.reloaded"));
             } catch (Exception e) {

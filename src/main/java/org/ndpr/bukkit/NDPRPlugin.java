@@ -85,19 +85,19 @@ public final class NDPRPlugin extends JavaPlugin {
         try {
             obtainUuid();
         } catch (Exception e) {
-            getLogger().warning(tr.tr("ndpr.error.init_stage_failed",
+            getLogger().severe(tr.tr("ndpr.error.init_stage_failed",
                     "stage", tr.tr("ndpr.word.stage_uuid"), "error", String.valueOf(e)));
         }
         try {
             downloadBanDatabase();
         } catch (Exception e) {
-            getLogger().warning(tr.tr("ndpr.error.init_stage_failed",
+            getLogger().severe(tr.tr("ndpr.error.init_stage_failed",
                     "stage", tr.tr("ndpr.word.stage_db"), "error", String.valueOf(e)));
         }
         try {
             checkPluginUpdate();
         } catch (Exception e) {
-            getLogger().warning(tr.tr("ndpr.error.init_stage_failed",
+            getLogger().severe(tr.tr("ndpr.error.init_stage_failed",
                     "stage", tr.tr("ndpr.word.stage_update"), "error", String.valueOf(e)));
         }
         startAutoDownload();
@@ -106,7 +106,7 @@ public final class NDPRPlugin extends JavaPlugin {
 
     // ============ UUID ============
 
-    /** 首次启动从云端获取服务器 UUID 并写回配置 */
+    /** 首次启动从云端获取服务器 UUID 并写回配置 (失败自动重试 3 次) */
     public void obtainUuid() throws Exception {
         if (config.apiUrl().isEmpty()) {
             throw new Exception("Error: " + tr.tr("ndpr.error.api_url_missing"));
@@ -116,13 +116,34 @@ public final class NDPRPlugin extends JavaPlugin {
         }
         getLogger().info(tr.tr("ndpr.log.getting_uuid"));
 
-        JsonObject data = api.post("/uuid/getuuid", new JsonObject(), 10);
-        if (data == null || !data.has("uuid")) {
-            throw new Exception("Error: " + tr.tr("ndpr.error.get_uuid_invalid", "data", String.valueOf(data)));
+        Exception lastError = null;
+        int[] retryDelaysMs = {5000, 15000};
+        for (int attempt = 1; attempt <= 3; attempt++) {
+            try {
+                JsonObject data = api.post("/uuid/getuuid", new JsonObject(), 10);
+                if (data == null || !data.has("uuid")) {
+                    throw new Exception("Error: " + tr.tr("ndpr.error.get_uuid_invalid", "data", String.valueOf(data)));
+                }
+                String uuid = data.get("uuid").getAsString();
+                config.setUuid(uuid);
+                getLogger().info(tr.tr("ndpr.log.uuid_obtained", "uuid", uuid));
+                return;
+            } catch (Exception e) {
+                lastError = e;
+                if (attempt <= retryDelaysMs.length) {
+                    int delaySec = retryDelaysMs[attempt - 1] / 1000;
+                    getLogger().warning("UUID 获取失败(第 " + attempt + " 次), " + delaySec + " 秒后重试: " + e);
+                    try {
+                        Thread.sleep(retryDelaysMs[attempt - 1]);
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        break;
+                    }
+                }
+            }
         }
-        String uuid = data.get("uuid").getAsString();
-        config.setUuid(uuid);
-        getLogger().info(tr.tr("ndpr.log.uuid_obtained", "uuid", uuid));
+        getLogger().severe("UUID 获取失败(已重试 3 次), 请在配置文件中手动填写 uuid 或稍后执行 /ndpr reload: " + lastError);
+        throw lastError;
     }
 
     // ============ Ban database ============
