@@ -1,0 +1,44 @@
+plugins {
+    id 'java'
+    id 'com.gradleup.shadow' version '8.3.5'
+}
+
+group = 'org.ndpr'
+version = '2.1.0'
+description = 'NDPReforged Bukkit/Paper client plugin'
+
+repositories {
+    mavenCentral()
+    maven { url = 'https://repo.papermc.io/repository/maven-public/' }
+}
+
+dependencies {
+    // Paper API 编译；代码只使用 Bukkit API，运行时同时兼容 Spigot/Bukkit/Paper
+    compileOnly 'io.papermc.paper:paper-api:1.20.1-R0.1-SNAPSHOT'
+    // SQLite 驱动打进 jar；slf4j 一并打包并 relocate 隔离（sqlite-jdbc 静态块强制引用 slf4j，
+    // relocate 后不依赖服务端 slf4j 版本，杜绝类冲突）
+    implementation 'org.xerial:sqlite-jdbc:3.45.3.0'
+}
+
+java {
+    // 兼容 MC 1.20.1+ (Java 17)；用本机 JDK 22 以 --release 17 编译
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    options.release = 17
+}
+
+shadowJar {
+    archiveBaseName = 'NDPR-Bukkit'
+    archiveClassifier = ''
+    archiveVersion = project.version
+    // 隔离 sqlite-jdbc 的 slf4j，避免与服务器自带版本冲突
+    relocate 'org.slf4j', 'org.ndpr.shadow.slf4j'
+}
+
+tasks.build {
+    dependsOn shadowJar
+}
