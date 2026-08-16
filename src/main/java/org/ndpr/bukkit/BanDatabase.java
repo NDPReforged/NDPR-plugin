@@ -82,7 +82,7 @@ public class BanDatabase {
     // ============ Download ============
 
     /**
-     * 下载封禁数据库. 流程与 MCDR 版一致:
+     * 下载封禁数据库. 流程:
      * GET /bans/download -> 取 url -> 下载 -> tmp 校验 -> 原子替换 -> 回报 done
      * 并发保护: inflight 锁, 重复触发返回 false
      */

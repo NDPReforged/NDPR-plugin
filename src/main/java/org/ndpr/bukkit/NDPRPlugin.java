@@ -208,7 +208,7 @@ public final class NDPRPlugin extends JavaPlugin {
 
     public void checkPluginUpdate(CommandSender src) {
         try {
-            JsonObject data = api.getPlain("https://api.github.com/repos/NDPReforged/NDPR-MCDR/releases/latest", 30);
+            JsonObject data = api.getPlain("https://api.github.com/repos/NDPReforged/NDPR-plugin/releases/latest", 30);
             if (data == null || !data.has("tag_name")) {
                 return;
             }
@@ -233,7 +233,6 @@ public final class NDPRPlugin extends JavaPlugin {
                         src.sendMessage("§a" + tr.tr("ndpr.reply.update_notes", "notes", notes));
                     }
                     src.sendMessage("§a" + tr.tr("ndpr.reply.download_url", "url", releaseUrl));
-                    // Bukkit 端无 MCDR plg install 命令, 不再提供填充/复制安装命令组件
                 }
                 getLogger().info(tr.tr("ndpr.log.update_found", "latest", latestVersion, "current", VERSION, "url", releaseUrl));
             } else if (src != null) {

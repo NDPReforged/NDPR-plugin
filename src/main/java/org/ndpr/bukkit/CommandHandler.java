@@ -9,7 +9,7 @@ import org.bukkit.entity.Player;
 import java.util.List;
 
 /**
- * /ndpr 命令分发 (对应 MCDR 版 !!ndpr)
+ * /ndpr 命令分发
  * 管理命令需要权限 ndpr.admin
  */
 public class CommandHandler implements CommandExecutor {
@@ -93,7 +93,7 @@ public class CommandHandler implements CommandExecutor {
         plugin.getServer().getScheduler().runTaskAsynchronously(plugin, () -> addBanPlayer(sender, player, reason));
     }
 
-    /** 提交封禁审核 (对应 MCDR 版 add_ban_player) */
+    /** 提交封禁审核 */
     private void addBanPlayer(CommandSender src, String player, String reason) {
         var tr = plugin.tr();
         var config = plugin.ndprConfig();

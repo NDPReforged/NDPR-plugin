@@ -16,7 +16,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * JSON 文件存储基类 (带锁 + 内存缓存, 对应 MCDR 版 player_info.json / hwid_temp.json)
+ * JSON 文件存储基类 (带锁 + 内存缓存, 用于 player_info.json / hwid_temp.json)
  * 性能: 文件只在首次读取时解析一次, 之后读写内存缓存, 写时落盘
  */
 public abstract class JsonStore {

@@ -12,7 +12,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * HWID 机器验证
- * 复刻 MCDR 版状态机: 创建会话 -> freeze 钉人 + 轮询 -> 完成/取消/超时
+ * 状态机: 创建会话 -> freeze 钉人 + 轮询 -> 完成/取消/超时
  * 线程模型: 验证循环在异步线程, 玩家操作(runTask)回主线程
  */
 public class HwidVerifier {

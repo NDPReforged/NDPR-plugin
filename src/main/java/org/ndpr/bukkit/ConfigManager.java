@@ -4,7 +4,7 @@ import org.bukkit.configuration.file.FileConfiguration;
 
 /**
  * 配置文件管理: 读取/校验/写入
- * 对应 MCDR 版 config.toml 的全部字段
+ * 包含插件的全部配置字段
  * 每次 getter 实时读取 plugin.getConfig(), reload 后自动生效
  */
 public class ConfigManager {
@@ -117,13 +117,13 @@ public class ConfigManager {
     }
 
     public int verifyTimeout() {
-        // 防御钳制: 30-600 秒 (对应 MCDR 版 _verify_timeout)
+        // 防御钳制: 30-600 秒
         int v = cfg().getInt("verify-timeout", 60);
         return Math.max(30, Math.min(600, v));
     }
 
     public int freezeInterval() {
-        // 防御钳制: 1-60 秒 (对应 MCDR 版 _freeze_interval)
+        // 防御钳制: 1-60 秒
         int v = cfg().getInt("freeze-interval", 1);
         return Math.max(1, Math.min(60, v));
     }

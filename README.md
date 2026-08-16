@@ -1,13 +1,12 @@
 # NDPR Bukkit/Paper 客户端插件
 
-NDPR (NotDPR) 云端封禁系统的 **Bukkit/Spigot/Paper** 客户端插件。
-由 `../MCDR` 版 MCDR 插件转写而来，功能完全对齐：云端封禁数据库、玩家加入检测、HWID 设备验证。
+NDPR (NotDPR) 云端封禁系统的 **Bukkit/Spigot/Paper** 客户端插件，提供云端封禁数据库、玩家加入检测、HWID 设备验证。
 
 ## 特性
 
 - **兼容性**：基于 Paper API 编译，**只使用 Bukkit API**，一个 jar 同时支持 Bukkit / Spigot / Paper
 - **版本支持**：MC 1.20.1+（`api-version: 1.20`，Java 17 字节码，1.20.1~1.21.x 通用）
-- **无日志解析**：相比 MCDR 版，IP/UUID 直接从 Bukkit 事件 API 获取（`PlayerJoinEvent`），不再依赖解析 `latest.log`
+- **无日志解析**：IP/UUID 直接从 Bukkit 事件 API 获取（`PlayerJoinEvent`），无需解析服务器日志
 - **内嵌 SQLite**：封禁数据库驱动（sqlite-jdbc）已打进 jar，无需额外安装
 - **可点击验证链接**：HWID 验证链接使用 bungeecord-chat 组件，可点击直达
 
