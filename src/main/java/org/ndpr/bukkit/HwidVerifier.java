@@ -42,7 +42,7 @@ public class HwidVerifier {
 
     /** 启动验证; force=true 绕过间隔检查(!!ndpr auth) */
     public void start(String playerName, String ip, boolean force) {
-        plugin.getServer().getScheduler().runTaskAsynchronously(plugin, () -> startAsync(playerName, ip, force));
+        Scheduler.runAsync(plugin, () -> startAsync(playerName, ip, force));
     }
 
     private void startAsync(String playerName, String ip, boolean force) {
@@ -84,13 +84,13 @@ public class HwidVerifier {
             return;
         }
 
-        // ---- 主线程: 施加验证状态 ----
-        plugin.getServer().getScheduler().runTask(plugin, () -> applyVerifyState(session));
+        // ---- 玩家所在线程: 施加验证状态 ----
+        Scheduler.runEntity(plugin, onlineNow, () -> applyVerifyState(session));
 
         runVerifyLoop(session);
     }
 
-    /** 主线程: 记录原状态, 冒险模式 + 失明 + 标题 + 提示 */
+    /** 玩家线程: 记录原状态, 冒险模式 + 失明 + 标题 + 提示 */
     private void applyVerifyState(Session session) {
         Player p = plugin.getServer().getPlayerExact(session.player);
         if (p == null || !p.isOnline()) {
@@ -141,32 +141,33 @@ public class HwidVerifier {
         String verifyUrl = created.has("verify_url") ? created.get("verify_url").getAsString() : "";
         String playerName = session.player;
 
-        // 主线程发送可点击验证链接
+        // 玩家线程发送可点击验证链接
         if (!verifyUrl.isEmpty()) {
-            plugin.getServer().getScheduler().runTask(plugin, () -> {
-                Player p = plugin.getServer().getPlayerExact(playerName);
-                if (p != null && p.isOnline()) {
-                    Messages.sendOpenUrl(p, "§e" + tr.tr("ndpr.tell.click_verify"), verifyUrl, tr.tr("ndpr.hover.open_verify_page"));
-                }
-            });
+            Player online = plugin.getServer().getPlayerExact(playerName);
+            if (online != null && online.isOnline()) {
+                Scheduler.runEntity(plugin, online, () -> {
+                    Player p = plugin.getServer().getPlayerExact(playerName);
+                    if (p != null && p.isOnline()) {
+                        Messages.sendOpenUrl(p, "§e" + tr.tr("ndpr.tell.click_verify"), verifyUrl, tr.tr("ndpr.hover.open_verify_page"));
+                    }
+                });
+            }
         }
 
         long freezeIntervalMs = config.freezeInterval() * 1000L;
         long lastFreeze = 0;
 
         while (!session.cancelled && System.currentTimeMillis() / 1000 < session.expiresAt) {
-            // 钉回锚点(主线程)
+            // 钉回锚点(玩家线程)
             if (session.anchor != null && System.currentTimeMillis() - lastFreeze >= freezeIntervalMs) {
                 Location anchor = session.anchor;
-                try {
-                    plugin.getServer().getScheduler().runTask(plugin, () -> {
-                        Player p = plugin.getServer().getPlayerExact(session.player);
-                        if (p != null && p.isOnline()) {
-                            p.teleport(anchor);
+                Player online = plugin.getServer().getPlayerExact(session.player);
+                if (online != null && online.isOnline()) {
+                    Scheduler.runEntity(plugin, online, () -> {
+                        if (online.isOnline()) {
+                            online.teleport(anchor);
                         }
                     });
-                } catch (IllegalStateException ignored) {
-                    // 插件已禁用(关服中), 任务无法注册
                 }
                 lastFreeze = System.currentTimeMillis();
             }
@@ -220,12 +221,14 @@ public class HwidVerifier {
                         plugin.kickPlayer(playerName, "§c" + tr.tr("ndpr.kick.banned_with_reason", "reason", kickReason), true);
                     } else {
                         plugin.hwidStore().save(playerName, session.ip);
-                        plugin.getServer().getScheduler().runTask(plugin, () -> {
-                            Player p = plugin.getServer().getPlayerExact(playerName);
-                            if (p != null && p.isOnline()) {
-                                p.sendMessage("§a" + tr.tr("ndpr.tell.verify_done"));
-                            }
-                        });
+                        Player online = plugin.getServer().getPlayerExact(playerName);
+                        if (online != null && online.isOnline()) {
+                            Scheduler.runEntity(plugin, online, () -> {
+                                if (online.isOnline()) {
+                                    online.sendMessage("§a" + tr.tr("ndpr.tell.verify_done"));
+                                }
+                            });
+                        }
                     }
                     sessions.remove(playerName, session);
                     restorePlayer(session);
@@ -258,24 +261,24 @@ public class HwidVerifier {
         sessions.remove(session.player, session);
     }
 
-    /** 主线程: 清除失明效果并恢复原游戏模式 */
+    /** 玩家线程: 清除失明效果并恢复原游戏模式 */
     private void restorePlayer(Session session) {
         String playerName = session.player;
         GameMode mode = session.originalMode;
-        try {
-            plugin.getServer().getScheduler().runTask(plugin, () -> {
-                Player p = plugin.getServer().getPlayerExact(playerName);
-                if (p == null || !p.isOnline()) {
-                    return;
-                }
-                p.removePotionEffect(PotionEffectType.BLINDNESS);
-                if (mode != null) {
-                    p.setGameMode(mode);
-                }
-            });
-        } catch (IllegalStateException ignored) {
-            // 插件已禁用(关服中), 任务无法注册
+        Player p = plugin.getServer().getPlayerExact(playerName);
+        if (p == null || !p.isOnline()) {
+            return;
         }
+        Scheduler.runEntity(plugin, p, () -> {
+            Player p2 = plugin.getServer().getPlayerExact(playerName);
+            if (p2 == null || !p2.isOnline()) {
+                return;
+            }
+            p2.removePotionEffect(PotionEffectType.BLINDNESS);
+            if (mode != null) {
+                p2.setGameMode(mode);
+            }
+        });
     }
 
     /** 玩家离开: 取消会话并通知后端 */
@@ -301,7 +304,7 @@ public class HwidVerifier {
     }
 
     private void cancelApiSessionAsync(String sessionId) {
-        plugin.getServer().getScheduler().runTaskAsynchronously(plugin, () -> {
+        Scheduler.runAsync(plugin, () -> {
             try {
                 plugin.api().postAuth("/hwid/upd/cancel", payload("session_id", sessionId), 5);
             } catch (Exception ignored) {

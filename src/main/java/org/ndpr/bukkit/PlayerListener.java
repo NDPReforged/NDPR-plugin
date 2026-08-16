@@ -37,8 +37,7 @@ public class PlayerListener implements Listener {
         final String ipv6 = (inet instanceof Inet6Address) ? inet.getHostAddress() : null;
 
         // 异步: 保存信息 -> 封禁检查 -> 处理
-        plugin.getServer().getScheduler().runTaskAsynchronously(plugin,
-                () -> handleJoin(name, uuid, ip, ipv6));
+        Scheduler.runAsync(plugin, () -> handleJoin(name, uuid, ip, ipv6));
     }
 
     private void handleJoin(String name, String uuid, String ip, String ipv6) {

@@ -90,7 +90,7 @@ public class CommandHandler implements CommandExecutor {
         }
         String player = args[1];
         String reason = String.join(" ", java.util.Arrays.copyOfRange(args, 2, args.length));
-        plugin.getServer().getScheduler().runTaskAsynchronously(plugin, () -> addBanPlayer(sender, player, reason));
+        Scheduler.runAsync(plugin, () -> addBanPlayer(sender, player, reason));
     }
 
     /** 提交封禁审核 */
@@ -170,7 +170,7 @@ public class CommandHandler implements CommandExecutor {
             return;
         }
         String target = String.join(" ", java.util.Arrays.copyOfRange(args, 1, args.length));
-        plugin.getServer().getScheduler().runTaskAsynchronously(plugin, () -> {
+        Scheduler.runAsync(plugin, () -> {
             if (!plugin.banDb().exists()) {
                 sender.sendMessage("§c" + tr.tr("ndpr.reply.no_data"));
                 return;
@@ -242,7 +242,7 @@ public class CommandHandler implements CommandExecutor {
     private void reload(CommandSender sender) {
         var tr = plugin.tr();
         sender.sendMessage("§e" + tr.tr("ndpr.reply.reloading"));
-        plugin.getServer().getScheduler().runTaskAsynchronously(plugin, () -> {
+        Scheduler.runAsync(plugin, () -> {
             try {
                 plugin.ndprConfig().reload();
                 if (!plugin.ndprConfig().isValid()) {
@@ -260,7 +260,7 @@ public class CommandHandler implements CommandExecutor {
     // ============ checkupdate ============
 
     private void checkUpdate(CommandSender sender) {
-        plugin.getServer().getScheduler().runTaskAsynchronously(plugin, () -> plugin.checkPluginUpdate(sender));
+        Scheduler.runAsync(plugin, () -> plugin.checkPluginUpdate(sender));
     }
 
     // ============ auth ============

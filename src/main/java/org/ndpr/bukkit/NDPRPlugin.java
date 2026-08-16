@@ -25,7 +25,7 @@ public final class NDPRPlugin extends JavaPlugin {
     private HwidStore hwidStore;
     private HwidVerifier hwidVerifier;
 
-    private int autoDownloadTask = -1;
+    private Scheduler.TaskHandle autoDownloadHandle = null;
 
     public static NDPRPlugin get() {
         return instance;
@@ -66,7 +66,7 @@ public final class NDPRPlugin extends JavaPlugin {
         getLogger().info(tr.tr("ndpr.log.uuid", "uuid",
                 config.uuid().isEmpty() ? tr.tr("ndpr.word.unset") : config.uuid()));
 
-        getServer().getScheduler().runTaskAsynchronously(this, this::asyncInit);
+        Scheduler.runAsync(this, this::asyncInit);
     }
 
     @Override
@@ -74,8 +74,8 @@ public final class NDPRPlugin extends JavaPlugin {
         if (hwidVerifier != null) {
             hwidVerifier.cancelAll();
         }
-        if (autoDownloadTask >= 0) {
-            getServer().getScheduler().cancelTask(autoDownloadTask);
+        if (autoDownloadHandle != null) {
+            autoDownloadHandle.cancel();
         }
         getLogger().info(tr != null ? tr.tr("ndpr.log.unloaded") : "NDPR plugin unloaded");
     }
@@ -138,12 +138,12 @@ public final class NDPRPlugin extends JavaPlugin {
 
     /** 后台 fire-and-forget 下载(玩家加入触发, 不阻塞调用线程) */
     public void scheduleDownload() {
-        getServer().getScheduler().runTaskAsynchronously(this, this::downloadBanDatabase);
+        Scheduler.runAsync(this, this::downloadBanDatabase);
     }
 
     /** 命令触发的下载(防并发由 BanDatabase.inflight 统一保证) */
     public void downloadBanDatabaseAsync(CommandSender src) {
-        getServer().getScheduler().runTaskAsynchronously(this, () -> {
+        Scheduler.runAsync(this, () -> {
             try {
                 banDb.download(src);
             } catch (Exception e) {
@@ -156,17 +156,16 @@ public final class NDPRPlugin extends JavaPlugin {
 
     // ============ Kick / report ============
 
-    /** 在主线程踢出玩家; 插件已禁用时静默跳过(关服场景) */
+    /** 在玩家所在线程踢出玩家; 插件已禁用时静默跳过(关服场景) */
     public void kickPlayer(String playerName, String reason, boolean report) {
-        try {
-            getServer().getScheduler().runTask(this, () -> {
-                Player p = getServer().getPlayerExact(playerName);
-                if (p != null && p.isOnline()) {
-                    p.kickPlayer(reason);
+        Player p = getServer().getPlayerExact(playerName);
+        if (p != null && p.isOnline()) {
+            Scheduler.runEntity(this, p, () -> {
+                Player p2 = getServer().getPlayerExact(playerName);
+                if (p2 != null && p2.isOnline()) {
+                    p2.kickPlayer(reason);
                 }
             });
-        } catch (IllegalStateException ignored) {
-            // 插件已禁用, 任务无法注册(服务器关服中)
         }
         if (report) {
             reportKick();
@@ -189,13 +188,11 @@ public final class NDPRPlugin extends JavaPlugin {
             getLogger().info(tr.tr("ndpr.log.auto_update_disabled"));
             return;
         }
-        if (autoDownloadTask >= 0) {
+        if (autoDownloadHandle != null) {
             return;
         }
-        autoDownloadTask = getServer().getScheduler()
-                .runTaskTimerAsynchronously(this, this::downloadBanDatabase,
-                        interval * 20L, interval * 20L)
-                .getTaskId();
+        autoDownloadHandle = Scheduler.runTimerAsync(this, this::downloadBanDatabase,
+                interval * 20L, interval * 20L);
         getLogger().info(tr.tr("ndpr.log.auto_update_started", "interval", String.valueOf(interval)));
     }
 
