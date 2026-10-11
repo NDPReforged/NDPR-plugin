@@ -1,7 +1,7 @@
 name: NDPR-Bukkit
-version: '2.1.0'
+version: '2.2.0'
 main: org.ndpr.bukkit.NDPRPlugin
-api-version: '1.20'
+api-version: '26.3'
 author: EXE_autumnwind NDPReforged Team
 description: NDPReforged 的 Bukkit/Spigot/Paper 客户端插件(云端封禁 + HWID 设备验证)
 website: https://ndpreforged.com

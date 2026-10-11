@@ -8,11 +8,11 @@ import org.bukkit.plugin.java.JavaPlugin;
 /**
  * NDPR (NotDPR) Bukkit/Paper 客户端主类
  * 云端封禁数据库 + 玩家加入检测 + HWID 设备验证
- * 仅使用 Bukkit API, 兼容 Spigot / Bukkit / Paper
+ * 仅使用 Bukkit API, 兼容 Spigot / Bukkit / Paper / Folia
  */
 public final class NDPRPlugin extends JavaPlugin {
 
-    public static final String VERSION = "2.1";
+    public static final String VERSION = "2.2";
     public static final String DEFAULT_LANGUAGE = "zh_CN";
 
     private static NDPRPlugin instance;
@@ -184,7 +184,7 @@ public final class NDPRPlugin extends JavaPlugin {
             Scheduler.runEntity(this, p, () -> {
                 Player p2 = getServer().getPlayerExact(playerName);
                 if (p2 != null && p2.isOnline()) {
-                    p2.kickPlayer(reason);
+                    Messages.kick(p2, reason);
                 }
             });
         }

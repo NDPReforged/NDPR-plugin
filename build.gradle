@@ -1,10 +1,19 @@
+//=======================================
+// NDPReforged Bukkit/Paper 客户端插件
+// 主目标: MC 26.3+        (Java 25, paper-api 26.3)
+// 兼容目标: MC 1.20.1-1.21.x (Java 17, paper-api 1.20.1)
+// 同一份源码双目标编译, 产物:
+//   build/libs/ndpr-bukkit-<version>.jar        -> MC 26.3+
+//   build/libs/ndpr-bukkit-<version>-legacy.jar -> MC 1.20.1-1.21.x
+//=======================================
+
 plugins {
     id 'java'
-    id 'com.gradleup.shadow' version '8.3.5'
+    id 'com.gradleup.shadow' version '9.6.1'
 }
 
 group = 'org.ndpr'
-version = '2.1.0'
+version = '2.2.0'
 description = 'NDPReforged Bukkit/Paper client plugin'
 
 repositories {
@@ -12,33 +21,101 @@ repositories {
     maven { url = 'https://repo.papermc.io/repository/maven-public/' }
 }
 
+configurations {
+    // 旧世代 API (MC 1.20.1-1.21.x): 仅用于 legacy 产物构建与兼容性校验
+    legacyApi
+}
+
 dependencies {
-    // Paper API 编译；代码只使用 Bukkit API，运行时同时兼容 Spigot/Bukkit/Paper
-    compileOnly 'io.papermc.paper:paper-api:1.20.1-R0.1-SNAPSHOT'
-    // SQLite 驱动打进 jar；slf4j 一并打包并 relocate 隔离（sqlite-jdbc 静态块强制引用 slf4j，
-    // relocate 后不依赖服务端 slf4j 版本，杜绝类冲突）
+    // 主目标: MC 26.3+ (API 为 Java 25 字节码, 需 JDK 25 编译)
+    compileOnly 'io.papermc.paper:paper-api:26.3.build.174-beta'
+
+    // SQLite: 唯一需要打包的运行时依赖; 其 slf4j 依赖一并打包后 relocate 隔离
     implementation 'org.xerial:sqlite-jdbc:3.45.3.0'
+
+    // 兼容目标: MC 1.20.1-1.21.x (Java 17)
+    legacyApi 'io.papermc.paper:paper-api:1.20.1-R0.1-SNAPSHOT'
 }
 
 java {
-    // 兼容 MC 1.20.1+ (Java 17)；用本机 JDK 22 以 --release 17 编译
-    sourceCompatibility = JavaVersion.VERSION_17
-    targetCompatibility = JavaVersion.VERSION_17
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(25)
+    }
 }
 
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'
+    // 输出弃用 API 明细, 便于核对新版服务端 API 变更
+    options.compilerArgs << '-Xlint:deprecation'
+}
+
+// 主编译: Java 25 (MC 26.3+ 服务端运行于 Java 25)
+tasks.named('compileJava') {
+    options.release = 25
+}
+
+// legacy 编译: Java 17 (MC 1.20.1-1.21.x)
+// 该任务同时充当"旧世代 API 兼容性校验": 源码若用了仅新 API 存在的成员会在此失败
+tasks.register('compileLegacyJava', JavaCompile) {
+    description = '编译 legacy 目标 (MC 1.20.1-1.21.x, Java 17)'
+    group = 'build'
+    javaCompiler = javaToolchains.compilerFor {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
+    source = fileTree('src/main/java')
+    classpath = configurations.legacyApi
+    destinationDirectory = layout.buildDirectory.dir('classes/java/legacy')
+    options.encoding = 'UTF-8'
     options.release = 17
 }
 
+// legacy 资源: plugin.yml 的 api-version 降为 1.20
+def legacyResourcesDir = layout.buildDirectory.dir('legacy-resources')
+tasks.register('processLegacyResources', Copy) {
+    from sourceSets.main.resources
+    into legacyResourcesDir
+    filteringCharset = 'UTF-8'
+    filter { String line -> line.replace("api-version: '26.3'", "api-version: '1.20'") }
+}
+
+// 主产物: MC 26.3+ (Java 25), 内嵌 sqlite-jdbc + relocate 后的 slf4j
 shadowJar {
-    archiveBaseName = 'NDPR-Bukkit'
+    archiveBaseName = 'ndpr-bukkit'
     archiveClassifier = ''
     archiveVersion = project.version
-    // 隔离 sqlite-jdbc 的 slf4j，避免与服务器自带版本冲突
+    // sqlite-jdbc 的 JDBC 类初始化强依赖 slf4j; relocate 到私有包避免与服务端 slf4j 冲突
     relocate 'org.slf4j', 'org.ndpr.shadow.slf4j'
+    mergeServiceFiles()
+}
+
+// 兼容产物: MC 1.20.1-1.21.x (Java 17)
+// 内嵌 sqlite-jdbc 及其 slf4j-api 依赖(不 relocate):
+// sqlite-jdbc 的 JDBC 类静态初始化强依赖 org.slf4j.LoggerFactory, 内嵌可保证任何服务端都能加载;
+// 服务端若提供 log4j-slf4j 桥, 日志仍会进入服务端日志, 否则退化为 NOP(功能不受影响)
+tasks.register('legacyJar', Jar) {
+    description = '打包 legacy 产物 (MC 1.20.1-1.21.x, Java 17)'
+    group = 'build'
+    dependsOn 'compileLegacyJava', 'processLegacyResources'
+    archiveBaseName = 'ndpr-bukkit'
+    archiveClassifier = 'legacy'
+    archiveVersion = project.version
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    from(layout.buildDirectory.dir('classes/java/legacy'))
+    from(legacyResourcesDir)
+    from({
+        configurations.runtimeClasspath
+                .findAll { it.name.startsWith('sqlite-jdbc') || it.name.startsWith('slf4j-api') }
+                .collect { zipTree(it) }
+    }) {
+        exclude 'META-INF/MANIFEST.MF', 'META-INF/*.SF', 'META-INF/*.DSA', 'META-INF/*.RSA', 'module-info.class'
+    }
+}
+
+// 纯 jar 不含运行时依赖, 禁用避免误用
+jar {
+    enabled = false
 }
 
 tasks.build {
-    dependsOn shadowJar
+    dependsOn shadowJar, legacyJar
 }

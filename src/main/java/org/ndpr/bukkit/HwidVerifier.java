@@ -102,7 +102,7 @@ public class HwidVerifier {
         session.anchor = p.getLocation().clone();
         p.setGameMode(GameMode.ADVENTURE);
         p.addPotionEffect(new PotionEffect(PotionEffectType.BLINDNESS, Integer.MAX_VALUE, 0, false, false, true));
-        p.sendTitle(tr.tr("ndpr.title.verify"), tr.tr("ndpr.subtitle.verify"), 10, 70, 20);
+        Messages.showTitle(p, tr.tr("ndpr.title.verify"), tr.tr("ndpr.subtitle.verify"));
         p.sendMessage("§e" + tr.tr("ndpr.tell.verify_enabled"));
         p.sendMessage("§7" + tr.tr("ndpr.tell.verify_freeze_notice"));
     }

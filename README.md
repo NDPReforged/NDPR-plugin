@@ -4,11 +4,18 @@ NDPR (NotDPR) 云端封禁系统的 **Bukkit/Spigot/Paper/Folia** 客户端插�
 
 ## 特性
 
-- **兼容性**：基于 Paper API 编译，**只使用 Bukkit API**，一个 jar 同时支持 Bukkit / Spigot / Paper / Folia（Folia 调度经反射自动适配，无需额外配置）
-- **版本支持**：MC 1.20.1+（`api-version: 1.20`，Java 17 字节码，1.20.1~1.21.x 通用）
+- **双产物（一份源码，两代服务端）**
+
+  | 产物 | 支持版本 | 字节码 | `api-version` |
+  |---|---|---|---|
+  | `ndpr-bukkit-2.2.0.jar` | MC **26.3+** | Java 25 | `26.3` |
+  | `ndpr-bukkit-2.2.0-legacy.jar` | MC 1.20.1 ~ 1.21.x | Java 17 | `1.20` |
+
+- **多服务端**：Bukkit / Spigot / Paper / Folia（Folia 分区调度经反射自动适配，无需额外配置）
+- **文本兼容层**：Paper/Folia 使用 Adventure 现代 API，Spigot/CraftBukkit 自动回退 BungeeCord chat —— 服务端弃用旧 API 不影响功能
 - **无日志解析**：IP/UUID 直接从 Bukkit 事件 API 获取（`PlayerJoinEvent`），无需解析服务器日志
 - **内嵌 SQLite**：封禁数据库驱动（sqlite-jdbc）已打进 jar，无需额外安装
-- **可点击验证链接**：HWID 验证链接使用 bungeecord-chat 组件，可点击直达
+- **可点击验证链接**：HWID 验证链接可直接点击打开
 
 ## 构建
 
@@ -16,11 +23,16 @@ NDPR (NotDPR) 云端封禁系统的 **Bukkit/Spigot/Paper/Folia** 客户端插�
 gradlew.bat build
 ```
 
-产物：`build/libs/NDPR-Bukkit-2.1.0.jar`（含 sqlite-jdbc，单文件）
+产物：
+
+- `build/libs/ndpr-bukkit-2.2.0.jar` — MC 26.3+（JDK 25 编译）
+- `build/libs/ndpr-bukkit-2.2.0-legacy.jar` — MC 1.20.1 ~ 1.21.x（JDK 17 编译）
+
+> 需本机具备 JDK 25 与 JDK 17，工具链路径见 `gradle.properties`。
 
 ## 安装
 
-1. 将 `NDPR-Bukkit-2.1.0.jar` 放入服务端 `plugins/` 目录
+1. 按服务端版本选择 jar（26.3+ 用 `ndpr-bukkit-2.2.0.jar`；1.20.1~1.21.x 用 `-legacy`），放入服务端 `plugins/` 目录
 2. 启动服务端，插件生成 `plugins/NDPR-Bukkit/config.yml`
 3. 填写 `onlinemode`（`true`=正版服 / `false`=离线服，**必填**，否则插件不加载）
 4. 如需封禁功能，填写 `token`（带上自动获取的 UUID 去 https://ndpreforged.com 绑定邮箱获取）
@@ -66,6 +78,21 @@ gradlew.bat build
 ## 与后端 API 的交互
 
 `POST /uuid/getuuid` · `GET /bans/download`（+`/done`）· `POST /check/uploader` · `POST /stats/a` · `POST /hwid/upd`（+`/check` `/cancel`）· `POST /hwid/has`
+
+## 服务端 API 变更与兼容性
+
+针对 Paper API `26.3.build.174-beta`（Java 25）与 `1.20.1-R0.1-SNAPSHOT`（Java 17）**双目标编译验证**，同一份源码同时通过两代 API：
+
+| 变更项 | 影响 | 处理 |
+|---|---|---|
+| `Player#kickPlayer(String)` 被弃用 | 仅弃用未移除 | `ChatBridge` 在 Paper/Folia 改用 `kick(Component)`，Spigot 回退旧方法 |
+| `Player#sendTitle(String…)` 被弃用 | 仅弃用未移除 | 改用 Adventure `showTitle(Title)`，Spigot 回退旧方法 |
+| `net.md_5.bungee.api.chat.*` 被弃用 | 仍随 API 提供 | Paper/Folia 走 Adventure `Component` + 点击/悬停事件，Spigot 回退 BungeeCord chat |
+| `api-version` 需匹配服务端世代 | 旧值会进入 legacy 兼容模式 | 26.3 产物使用 `26.3`，legacy 产物使用 `1.20` |
+| 运行环境升级到 Java 25 | Java 17 字节码无法在旧 JVM 上运行 | 26.3 产物以 Java 25 编译并在 Java 25 服务端运行；legacy 产物保持 Java 17 |
+| Folia 分区调度 API | 26.3 中 `io.papermc.paper.threadedregions.scheduler.*` 仍然存在 | 反射适配继续有效，Paper/Spigot 上自动回退 Bukkit 调度 |
+
+构建时开启 `-Xlint:deprecation`，当前两目标均为 **0 弃用告警**（兼容层内部对旧 API 调用做了显式抑制）。
 
 ---
 
